@@ -1,0 +1,102 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────
+#  InsulinPump OS  –  Full Stack
+#  Run:  docker compose up -d
+#  Open: http://localhost:8501
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── 1. MQTT Broker ──────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: insulinpump_mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
+  # ── 2. PostgreSQL  (patient registry) ───────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: insulinpump_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: med_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: insulinpump_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 3. InfluxDB v2  (time-series telemetry) ─────────────────
+  influxdb:
+    image: influxdb:2.7
+    container_name: insulinpump_influx
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: influxpump123
+      DOCKER_INFLUXDB_INIT_ORG: InsulinPumpOS
+      DOCKER_INFLUXDB_INIT_BUCKET: telemetry
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: insulinpump-super-secret-token-change-me
+    ports:
+      - "8086:8086"
+    volumes:
+      - influx_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── 4. Streamlit Web App ─────────────────────────────────────
+  webapp:
+    build:
+      context: ./WebApp
+      dockerfile: Dockerfile
+    container_name: insulinpump_webapp
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      # These values are injected automatically — no manual editing needed
+      MQTT_BROKER: mosquitto
+      MQTT_PORT: "1883"
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_DB: med_db
+      PG_USER: postgres
+      PG_PASSWORD: insulinpump_secret
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: insulinpump-super-secret-token-change-me
+      INFLUX_ORG: InsulinPumpOS
+      INFLUX_BUCKET: telemetry
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    volumes:
+      - webapp_storage:/app/storage  # persists saved_formulas.json, saved_doses.json
+
+volumes:
+  postgres_data:
+  influx_data:
+  mosquitto_data:
+  mosquitto_log:
+  webapp_storage:
