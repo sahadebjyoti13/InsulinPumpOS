@@ -123,6 +123,12 @@ All four services run as Docker containers — no manual database setup needed.
 InsulinPumpOS/
 │   index.html              Landing page (GitHub Pages)
 │   README.md
+│
+├───firmware/
+│   └───esp32_mqtt_bench/
+│           esp32_mqtt_bench.ino   Guarded ESP32 MQTT bench-test firmware
+│           README.md             Firmware configuration and test plan
+│           dashboard_test_payloads.json
 │   docker-compose.yml      Full stack definition
 │   install.bat             Windows one-click installer
 │   install.sh              Linux / macOS installer
