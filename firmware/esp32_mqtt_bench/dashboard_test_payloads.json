@@ -1,0 +1,17 @@
+{
+  "telemetry_topic": "medical/pump/CIIP002/data",
+  "command_topic": "medical/pump/CIIP002/host",
+  "safe_test_commands": [
+    {"power": "ON"},
+    {"power": "OFF"},
+    {"reset_fault": true}
+  ],
+  "motor_move_command": {
+    "test_move_ms": 250,
+    "note": "Only for unloaded, supervised bench testing after explicit local firmware enablement; do not use for insulin delivery."
+  },
+  "blocked_dosing_commands": [
+    {"basal_rate": 0.1},
+    {"bolus_dose": 0.1}
+  ]
+}
